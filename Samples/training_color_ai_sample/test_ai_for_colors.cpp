@@ -6,7 +6,7 @@
 #include <fstream>
 
 using namespace std;
-const double learning_rate = 0.05;
+const double learning_rate = 50.9;
 
 class Node {
 	public:
@@ -305,7 +305,10 @@ int main() {
 	Configuration* nn = getConfiguration();
 	TrainConfiguration* tc = new TrainConfiguration("training_for_colors.txt", nn);
 	double* red = new double[3] {1, 0, 0};
+	// NN should give Mirrored output as an exmaple
+	// Reached 99% of correctness with huge amount of data (32k +) and increasing learning reate tremendously.
 	nn->setInputs(red);
+	nn->print();
 	tc->start_training();
 	cout << "Correctness %: " << 100 * tc->verify() << endl << endl;
 	nn->setInputs(red);
