@@ -400,7 +400,7 @@ for key, val in jump_table.items():
 with open('tictactoe.txt', 'r') as f:
     data = f.read()
     boards = data.split("\n")
-    boards = [x.split()[:9] for x in boards]
+    boards = [x.split()[:9] for x in boards if x]
     for this_board in boards:
         str_board = ','.join(this_board)
         this_board = [float(x) for x in this_board]
@@ -408,6 +408,5 @@ with open('tictactoe.txt', 'r') as f:
             exp_output = [0, 0, 0, 0, 0, 0, 0, 0, 0]
             exp_output[find_optimal_move(np.array(this_board))] = 1
             print(str_board, ','.join([str(x) for x in exp_output]))
-        except:
+        except AssertionError:
             pass
-    
