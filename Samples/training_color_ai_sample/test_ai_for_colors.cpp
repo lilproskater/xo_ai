@@ -6,7 +6,7 @@
 #include <fstream>
 
 using namespace std;
-const double learning_rate = 50.9;
+const double learning_rate = 1.0;
 
 class Node {
 	public:
@@ -301,14 +301,25 @@ void initRand() {
 }
 
 int main() {
-	// initRand();
+	initRand();
 	Configuration* nn = getConfiguration();
 	TrainConfiguration* tc = new TrainConfiguration("training_for_colors.txt", nn);
 	double* red = new double[3] {1, 0, 0};
 	// NN should give Mirrored output as an exmaple
-	// Reached 99% of correctness with huge amount of data (32k +) and increasing learning reate tremendously.
+	// Config reaching stable 98%+ of correctness:
+	// Let NN be 3 -> 3 -> 3 with random initial weights (initRand func is called)
+	// Epochs: cyclic data of 6k lines
+	// Learning rate: 1.0
+
+	// Funny facts:
+	// Fun fact: You can reach (about) stable 99%, but with 20k epochs
+	/* If training data is not mixed (an example is trained thousand times and next example comes)
+	   training will not be effective at all
+	*/
 	nn->setInputs(red);
+	cout << "Correctness %: " << 100 * tc->verify() << endl << endl;
 	nn->print();
+	cout << "Starting training..." << endl << endl;
 	tc->start_training();
 	cout << "Correctness %: " << 100 * tc->verify() << endl << endl;
 	nn->setInputs(red);
