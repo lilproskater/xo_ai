@@ -6,8 +6,7 @@
 #include <fstream>
 
 using namespace std;
-short int field[9];
-const double learning_rate = 0.8;
+const double learning_rate = 0.05;
 
 class Node {
 	public:
@@ -134,6 +133,37 @@ class Configuration {
 					outputs[i].addParent(hidden_layers[hlayers_size - 1].neurons + j, fRand(0, 1));
 		}
 		
+		void save(char* fname) {
+			FILE* fp = fopen(fname, "w");
+			// Saving weights from last hidden layer to outputs
+			for (int i = 0; i < outputs_count; ++ i)
+				for (int j = 0; j < outputs[i].links.size(); ++ j)
+					fprintf(fp, "%lf\n", outputs[i].links[j].coefficient);
+			
+			// Saving weights from hidden layers to hidden layers/inputs
+			for (int i = 0; i < hidden_layers_conf->size(); ++ i)
+				for (int j = 0; j < (*hidden_layers_conf)[i]; ++ j)
+					for (int k = 0; k < hidden_layers[i].neurons[j].links.size(); ++ k)
+						fprintf(fp, "%lf\n", hidden_layers[i].neurons[j].links[k].coefficient);
+			fclose(fp);
+			printf("Successfully saved configuration to file: %s\n", fname);
+		}
+		
+		void load(char* fname) {
+			FILE* fp = fopen(fname, "r");
+			// Saving weights from last hidden layer to outputs
+			for (int i = 0; i < outputs_count; ++ i)
+				for (int j = 0; j < outputs[i].links.size(); ++ j)
+					fscanf(fp, "%lf\n", &(outputs[i].links[j].coefficient));
+			
+			// Saving weights from hidden layers to hidden layers/inputs
+			for (int i = 0; i < hidden_layers_conf->size(); ++ i)
+				for (int j = 0; j < (*hidden_layers_conf)[i]; ++ j)
+					for (int k = 0; k < hidden_layers[i].neurons[j].links.size(); ++ k)
+						fscanf(fp, "%lf\n", &(hidden_layers[i].neurons[j].links[k].coefficient));
+			fclose(fp);
+		}
+		
 		void printNode(Node* node) {
 			printf("%.3f", node->getResult());
 			if (node->getType() == 'n' && 0) {
@@ -167,114 +197,16 @@ class Configuration {
 			printf("\n\n=========================\n\n");
 		}
 		
-		void train(double* inputs, double* expected_outputs) {
-			
-			double predicts[outputs_count];
-			setInputs(inputs);
-			for (int i = 0; i < outputs_count; ++ i)
-				predicts[i] = this->outputs[i].getResult();
-				
-			// Calling BackPropagation on outputs
-			for (int i = 0; i < outputs_count; ++ i) {
-				double error = predicts[i] - expected_outputs[i];
-				this->outputs[i].backProp(error);
-			}
-		}
-		
 		void setInputs(double* inputs) {
 			for (int i = 0; i < inputs_count; ++ i)
 				this->inputs[i].setValue(inputs[i]);
 		}
 };
 
-class TrainConfiguration {
-	public:
-		char* fname;
-		Configuration* nn;
-		TrainConfiguration(char* fname, Configuration* nn) {
-			this->fname = fname;
-			this->nn = nn;
-		}
-		
-		int fill_io(FILE* fp, double* inputs, double* outputs) {
-			return fscanf(
-					fp,
-					"%lf,%lf,%lf,%lf,%lf,%lf,%lf,%lf,%lf %lf,%lf,%lf,%lf,%lf,%lf,%lf,%lf,%lf",
-					&inputs[0],
-					&inputs[1],
-					&inputs[2],
-					&inputs[3],
-					&inputs[4],
-					&inputs[5],
-					&inputs[6],
-					&inputs[7],
-					&inputs[8],
-					&outputs[0],
-					&outputs[1],
-					&outputs[2],
-					&outputs[3],
-					&outputs[4],
-					&outputs[5],
-					&outputs[6],
-					&outputs[7],
-					&outputs[8]
-				);
-		}
-		
-		void start_training() {
-			FILE *fp = fopen(this->fname, "r");
-			if (fp == NULL) {
-				printf("File \"%s\"not found!\n", this->fname);
-				return;
-			}
-			double inputs[9];
-			double exp_outputs[9];
-			int n = 0;
-			while (fill_io(fp, inputs, exp_outputs) != EOF) {
-				nn->train(inputs, exp_outputs);
-				//if (!(n % 100))
-				//	nn->print();
-				n ++;
-			}
-			fclose(fp);
-		}
-		
-		double compare_results(double* predict_outputs, double* expected_outputs, int outputs_count) {
-			double accum_errors = 0;
-			for (int i = 0; i < outputs_count; ++ i)
-				accum_errors += fabs(predict_outputs[i] - expected_outputs[i]);
-			return 1.0 - accum_errors / (double)(outputs_count);
-		}
-		
-		double verify() {
-			FILE *fp = fopen(this->fname, "r");
-			if (fp == NULL) {
-				printf("File \"%s\"not found!\n", this->fname);
-				return -1;
-			}
-			int inputs_count = 9;
-			int outputs_count = 9;
-			double inputs[inputs_count];
-			double predict_outputs[outputs_count];
-			double exp_outputs[outputs_count];
-			double accum_error = 0;
-			int n = 0;
-			while (fill_io(fp, inputs, exp_outputs) != EOF) {
-				nn->setInputs(inputs);
-				for (int i = 0; i < outputs_count; ++ i)
-					predict_outputs[i] = (nn->outputs[i]).getResult();
-				accum_error += 1.0 - compare_results(predict_outputs, exp_outputs, outputs_count);
-				n ++;
-			}
-			fclose(fp);
-			return 1.0 - accum_error / (double)(n);
-		}
-};
-
 Configuration* getConfiguration() {
 	vector<int> *hidden_layers = new vector<int>();
-	(*hidden_layers).push_back(29);
-	return new Configuration(9, hidden_layers, 9);
+	(*hidden_layers).push_back(3);
+	return new Configuration(3, hidden_layers, 3);
 }
 
 void initRand() {
@@ -283,16 +215,19 @@ void initRand() {
 }
 
 int main() {
-	// initRand();
+	// As an example Neural network should output mirrored output
+	// Config:
+	// 3 Inputs
+	// 1 hidden layer with 3 neurons
+	// 3 outputs
+	// Learning rate: 1.0
 	Configuration* nn = getConfiguration();
-	TrainConfiguration* tc = new TrainConfiguration("training_xo_data.txt", nn);
-	double* test_board = new double[9] {-1, -1, 0, -1, 1, 1, 1, 0, 1};
-	nn->setInputs(test_board);
-	nn->print();
-	tc->start_training();
-	cout << "Correctness %: " << 100 * tc->verify() << endl << endl;
-	nn->setInputs(test_board);
-	nn->print();
-	system("pause");
+	nn->load("nn_conf.txt");
+	double inputs[3];
+	for (int i = 0; i < 3; ++ i)
+		scanf("%lf", inputs + i);
+	nn->setInputs(inputs);
+	for (int i = 0; i < 3; ++ i)
+		cout << nn->outputs[i].getResult() << " ";
 	return 0;
 }

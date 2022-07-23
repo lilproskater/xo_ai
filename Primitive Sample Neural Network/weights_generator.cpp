@@ -198,7 +198,6 @@ class Configuration {
 		}
 		
 		void train(double* inputs, double* expected_outputs) {
-			
 			double predicts[outputs_count];
 			setInputs(inputs);
 			for (int i = 0; i < outputs_count; ++ i)
@@ -245,8 +244,8 @@ class TrainConfiguration {
 				printf("File \"%s\"not found!\n", this->fname);
 				return;
 			}
-			double inputs[9];
-			double exp_outputs[9];
+			double inputs[3];
+			double exp_outputs[3];
 			int n = 0;
 			while (fill_io(fp, inputs, exp_outputs) != EOF) {
 				nn->train(inputs, exp_outputs);
@@ -281,11 +280,55 @@ class TrainConfiguration {
 				nn->setInputs(inputs);
 				for (int i = 0; i < outputs_count; ++ i)
 					predict_outputs[i] = (nn->outputs[i]).getResult();
-				accum_error += 1.0 - compare_results(predict_outputs, exp_outputs, outputs_count);
+				int max_idx = getMaxResultIdx(predict_outputs, outputs_count);
+				if (exp_outputs[max_idx] != 1)
+					accum_error += 1.0;
 				n ++;
 			}
 			fclose(fp);
 			return 1.0 - accum_error / (double)(n);
+		}
+		
+		int getMaxResultIdx(double* outputs, int outputs_count) {
+			int max_idx = 0;
+			for (int i = 1; i < outputs_count; ++ i)
+				if (outputs[i] > outputs[max_idx])
+					max_idx = i;
+			return max_idx;
+		}
+		
+		void failed_tests(char* fname_to_write) {
+			FILE *fp = fopen(this->fname, "r");
+			if (fp == NULL) {
+				printf("File \"%s\"not found!\n", this->fname);
+				return;
+			}
+			FILE *fp_writer = fopen(fname_to_write, "w");
+			int inputs_count = 3;
+			int outputs_count = 3;
+			double inputs[inputs_count];
+			double predict_outputs[outputs_count];
+			double exp_outputs[outputs_count];
+			while (fill_io(fp, inputs, exp_outputs) != EOF) {
+				nn->setInputs(inputs);
+				for (int i = 0; i < outputs_count; ++ i) 
+					predict_outputs[i] = (nn->outputs[i]).getResult();
+				int max_idx = getMaxResultIdx(predict_outputs, outputs_count);
+				if (exp_outputs[max_idx] != 1) {
+					fprintf(
+						fp_writer,
+						"%d,%d,%d %d,%d,%d\n",
+						(int)inputs[0],
+						(int)inputs[1],
+						(int)inputs[2],
+						(int)exp_outputs[0],
+						(int)exp_outputs[1],
+						(int)exp_outputs[2]
+					);
+				}
+			}
+			fclose(fp);
+			fclose(fp_writer);
 		}
 };
 
@@ -303,28 +346,37 @@ void initRand() {
 int main() {
 	initRand();
 	Configuration* nn = getConfiguration();
-	TrainConfiguration* tc = new TrainConfiguration("training_for_colors.txt", nn);
-	double* red = new double[3] {1, 0, 0};
-	// NN should give Mirrored output as an exmaple
-	// Config reaching stable 98%+ of correctness:
-	// Let NN be 3 -> 3 -> 3 with random initial weights (initRand func is called)
-	// Epochs: cyclic data of 6k lines
+	char* training_fname = "primitive_training.txt";
+	// As an example Neural network should output mirrored output
+	// Config:
+	// 3 Inputs
+	// 1 hidden layer with 3 neurons
+	// 3 outputs
 	// Learning rate: 1.0
-
-	// Funny facts:
-	// Fun fact: You can reach (about) stable 99%, but with 20k epochs
-	/* If training data is not mixed (an example is trained thousand times and next example comes)
-	   training will not be effective at all
-	*/
-	nn->setInputs(red);
-	cout << "Correctness %: " << 100 * tc->verify() << endl << endl;
-	nn->print();
-	cout << "Starting training..." << endl << endl;
-	tc->start_training();
-	cout << "Correctness %: " << 100 * tc->verify() << endl << endl;
-	nn->setInputs(red);
-	nn->print();
-	nn->save("nn_conf.txt");
-	system("pause");
+	char* fname_failed = "failed_tests.txt";
+	TrainConfiguration* tc = new TrainConfiguration(training_fname, nn);
+	double max_correctness = 0;
+	while (true) {
+		tc->fname = training_fname;
+		double correctness = 100 * tc->verify();
+		if (correctness > max_correctness) {
+			cout << "Correctness %: " << correctness << endl;
+			max_correctness = correctness;
+			if (correctness > 96) {
+				nn->save("weights.txt");
+				cout << "As this is the best training for now above 96%: weights has been saved to weights.txt" << endl;
+				if (correctness == 100) {
+					cout << "Congratulations: 100% reached!\n";
+					remove(fname_failed);
+					system("pause");
+					break;
+				} else
+					cout << "If you wish you can quit now" << endl;
+			}
+		}
+		tc->failed_tests(fname_failed);
+		tc->fname = fname_failed;
+		tc->start_training();
+	}
 	return 0;
 }

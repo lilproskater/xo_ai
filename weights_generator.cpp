@@ -368,37 +368,35 @@ void initRand() {
 	rand();
 }
 
-bool checkHasEmpty(double* inputs, int inputs_count) {
-	bool hasEmpty = false;
-	for (int i = 0; i < inputs_count; ++ i) {
-		if (inputs[i] == 0) {
-			hasEmpty = true;
-			break;
-		}
-	}
-	return hasEmpty;
-}
-
 int main() {
-	Configuration* nn = getConfiguration();
-	nn->load("nn_conf.txt");
-	double inputs[9];
-	for (int i = 0; i < 9; ++ i)
-		scanf("%lf", inputs + i);
-	nn->setInputs(inputs);
-	if (!checkHasEmpty(inputs, 9)) {
-		cout << -1;
-		return 0;
-	}
-	int nn_guess_idx = -1;
-	double max_nn_guess_val = 0.0;
-	for (int i = 0; i < 9; ++ i) {
-		double predict = nn->outputs[i].getResult();
-		if (predict > max_nn_guess_val) {
-			nn_guess_idx = i;
-			max_nn_guess_val = predict;
+	initRand();
+	Configuration* nn = getConfiguration();\
+	char* training_fname = "training_data.txt";
+	char* fname_failed = "failed_tests.txt";
+	TrainConfiguration* tc = new TrainConfiguration(training_fname, nn);
+	double max_correctness = 0;
+	while (true) {
+		tc->fname = training_fname;
+		double correctness = 100 * tc->verify();
+		if (correctness > max_correctness) {
+			cout << "Correctness %: " << correctness << endl;
+			max_correctness = correctness;
+			if (correctness > 96) {
+				nn->save("weights.txt");
+				cout << "As this is the best training for now above 96%: weights has been saved to weights.txt" << endl;
+				cout << "To load weights in xo_ai.cpp rename generated weights.txt to nn_conf.txt" << endl;
+				if (correctness == 100) {
+					cout << "Congratulations: 100% reached!\n";
+					remove(fname_failed);
+					system("pause");
+					break;
+				} else
+					cout << "If you wish you can quit now" << endl;
+			}
 		}
+		tc->failed_tests(fname_failed);
+		tc->fname = fname_failed;
+		tc->start_training();
 	}
-	cout << nn_guess_idx;
 	return 0;
 }
