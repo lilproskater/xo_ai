@@ -6,7 +6,6 @@
 #include <fstream>
 
 using namespace std;
-short int field[9];
 const double learning_rate = 0.01;
 
 class Node {
